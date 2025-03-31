@@ -11,25 +11,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Check latest release
+      - name: Check latest Aseprite release
         id: check_release
         run: |
-          # Get the current version from version.txt
-          $current_version = Get-Content version.txt
+          # Get the latest Aseprite release from GitHub API
+          $aseprite_latest = Invoke-RestMethod -Uri "https://api.github.com/repos/aseprite/aseprite/releases/latest"
+          $aseprite_version = $aseprite_latest.tag_name
           
-          # Get the latest release version from GitHub API
-          $latest_release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest" -ErrorAction SilentlyContinue
-          $latest_version = $latest_release.tag_name
+          # Get our latest release version from GitHub API
+          $our_latest_release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest" -ErrorAction SilentlyContinue
+          $our_latest_version = $our_latest_release.tag_name
           
-          echo "Current version: $current_version"
-          echo "Latest released version: $latest_version"
+          echo "Aseprite latest version: $aseprite_version"
+          echo "Our latest built version: $our_latest_version"
           
           # Compare versions and set the output
-          if ($null -eq $latest_version -or $current_version -ne $latest_version) {
-            echo "Version differs or no previous release exists, continuing build"
+          if ($null -eq $our_latest_version -or $aseprite_version -ne $our_latest_version) {
+            echo "New Aseprite version available, continuing build"
             echo "continue_build=true" >> $env:GITHUB_OUTPUT
+            echo "version=$aseprite_version" >> $env:GITHUB_OUTPUT
           } else {
-            echo "Version matches latest release, skipping build"
+            echo "Already built the latest Aseprite version, skipping build"
             echo "continue_build=false" >> $env:GITHUB_OUTPUT
           }
       
@@ -64,24 +66,17 @@ jobs:
           ninja aseprite
           copy "C:/Windows/System32/libcrypto-1_1-x64.dll" ./bin
       
-      - name: Get version
-        if: steps.check_release.outputs.continue_build == 'true'
-        id: get_version
-        run: |
-          $version = Get-Content version.txt
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-      
       - name: Zip Aseprite
         if: steps.check_release.outputs.continue_build == 'true'
         run: |
           cd build/bin
-          7z a ../../Aseprite-Windows-x64-${{ steps.get_version.outputs.version }}.zip *
+          7z a ../../Aseprite-Windows-x64-${{ steps.check_release.outputs.version }}.zip *
       
       - name: GH Release
         if: steps.check_release.outputs.continue_build == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: Aseprite-Windows-x64-${{ steps.get_version.outputs.version }}
-          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Aseprite-Windows-x64-${{ steps.check_release.outputs.version }}
+          tag_name: ${{ steps.check_release.outputs.version }}
           files: |
-            Aseprite-Windows-x64-${{ steps.get_version.outputs.version }}.zip
+            Aseprite-Windows-x64-${{ steps.check_release.outputs.version }}.zip
