@@ -25,8 +25,13 @@ jobs:
           echo "Aseprite latest version: $aseprite_version"
           echo "Our latest built version: $our_latest_version"
           
+          # Check if version contains "beta"
+          if ($aseprite_version -like "*beta*") {
+            echo "Latest version is a beta release, skipping build"
+            echo "continue_build=false" >> $env:GITHUB_OUTPUT
+          }
           # Compare versions and set the output
-          if ($null -eq $our_latest_version -or $aseprite_version -ne $our_latest_version) {
+          elseif ($null -eq $our_latest_version -or $aseprite_version -ne $our_latest_version) {
             echo "New Aseprite version available, continuing build"
             echo "continue_build=true" >> $env:GITHUB_OUTPUT
             echo "version=$aseprite_version" >> $env:GITHUB_OUTPUT
